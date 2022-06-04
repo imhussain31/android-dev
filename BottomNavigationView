@@ -1,0 +1,89 @@
+///Add Dependency 
+implementation 'com.google.android.material:material:1.0.0'
+
+
+///create menu.xml file in menu directory
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+   <item
+       android:id="@+id/homeId"
+       app:showAsAction="always"
+       android:title="Home"
+       android:icon="@drawable/ic_baseline_home_24"
+       />
+    <item android:id="@+id/addId"
+       app:showAsAction="always"
+       android:title="Add Items"
+       android:icon="@drawable/ic_baseline_add_24"
+       />
+    <item android:id="@+id/profileId"
+       app:showAsAction="always"
+       android:title="Profile"
+       android:icon="@drawable/ic_baseline_person_24"
+       />
+
+
+</menu>
+
+///xml code
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/bottomNavigationId"
+        android:layout_alignParentBottom="true"
+        android:background="@color/design_default_color_primary"
+        app:menu="@menu/navigation_menu"/>
+
+
+
+</RelativeLayout>
+
+///Java code
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.os.Bundle;
+import android.view.MenuItem;
+
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+
+public class MainActivity extends AppCompatActivity {
+
+    private BottomNavigationView bottomNavigationView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        bottomNavigationView = findViewById(R.id.bottomNavigationId);
+
+        bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
+            @Override
+            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                if (item.getItemId() == R.id.homeId){
+                    ///do something
+                }
+                if (item.getItemId() == R.id.addId){
+                    ///do something
+                }
+                if (item.getItemId() == R.id.profileId){
+                    ///do something
+                }
+
+                return false;
+            }
+        });
+    }
+}
