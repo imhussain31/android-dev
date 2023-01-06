@@ -1,0 +1,10 @@
+//Dependency 
+implementation 'com.github.hotchemi:android-rate:1.0.1'
+
+//Java code
+AppRate.with(this)
+                .setInstallDays(0) //This is to show rating dialog after install day
+                .setLaunchTimes(3) //This is to show how many times to  show dialog
+                .setRemindInterval(2) //This is remoander interval day
+                .monitor();
+        AppRate.showRateDialogIfMeetsConditions(this);
