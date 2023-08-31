@@ -1,0 +1,41 @@
+//Dependency
+implementation 'com.squareup.retrofit2:retrofit:2.7.2'
+implementation 'com.squareup.retrofit2:converter-gson:2.7.2'
+
+//Manifest 
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+//create a model class according to JSON
+//Create an interface which return retrofit call of model class type
+@GET("posts")
+    Call<List<model>> getModels();
+
+//In the activityClass create Retrofit object
+Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(url)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+
+//convert JSON data to model class object
+        myapi api = retrofit.create(myapi.class);
+
+//create a call of model class and enqueue for preocessing  and receive reponse data 
+ Call<List<model>> call = api.getModels();
+
+        call.enqueue(new Callback<List<model>>() {
+            @Override
+            public void onResponse(Call<List<model>> call, Response<List<model>> response) {
+                List<model> data = response.body();
+
+                for (int i = 0; i<data.size(); i++){
+                    textView.append("SL no : "+data.get(i).getId()+"\n Title : "+data.get(i).getTitle());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<model>> call, Throwable t) {
+
+            }
+        });
+
