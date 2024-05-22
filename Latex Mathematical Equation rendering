@@ -1,0 +1,30 @@
+///Dependencies
+implementation 'ru.noties:jlatexmath-android:0.2.0'
+
+// for Cyrillic symbols
+    implementation 'ru.noties:jlatexmath-android-font-cyrillic:0.2.0'
+
+// for Greek symbols
+    implementation 'ru.noties:jlatexmath-android-font-greek:0.2.0'
+
+
+///XML code
+  <ru.noties.jlatexmath.JLatexMathView
+            android:id="@+id/qnTvId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            />
+
+
+///Java code
+private JLatexMathView questionTv;
+
+final JLatexMathDrawable drawable = JLatexMathDrawable.builder(String.valueOf(currentQueNo) + ") " +questionModels.get(i - 1).getQuestion()
+                        )
+                        .textSize(50)
+                        .padding(8)
+                        .background(0xFFffffff)
+                        .align(JLatexMathDrawable.ALIGN_RIGHT)
+                        .build();
+                questionTv.setLatexDrawable(drawable);
