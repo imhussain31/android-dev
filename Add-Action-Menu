@@ -1,0 +1,27 @@
+@Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.counter_menu, menu);
+        return true;
+    }
+
+
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.share_id){
+            Intent sendIntent = new Intent();
+            sendIntent.setAction(Intent.ACTION_SEND);
+            String apkLink = "https://play.google.com/store/apps/details?id=";
+            sendIntent.putExtra(Intent.EXTRA_TEXT, apkLink);
+            sendIntent.setType("text/plain");
+            startActivity(Intent.createChooser(sendIntent, "Share link using"));
+        }else if (id == R.id.feedBack_id){
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse("https://play.google.com/store/apps/details?id="));
+            startActivity(intent);
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
