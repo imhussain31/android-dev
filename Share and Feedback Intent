@@ -1,0 +1,15 @@
+//Share Intent
+
+Intent sendIntent = new Intent();
+            sendIntent.setAction(Intent.ACTION_SEND);
+            String apkLink = "https://play.google.com/store/apps/details?id=";
+            sendIntent.putExtra(Intent.EXTRA_TEXT, apkLink);
+            sendIntent.setType("text/plain");
+            startActivity(Intent.createChooser(sendIntent, "Share link using"));
+
+
+//Feedback Intent
+
+ Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse("https://play.google.com/store/apps/details?id="));
+            startActivity(intent);
