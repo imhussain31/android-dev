@@ -1,0 +1,164 @@
+### Step 1: Set Up SQLite Database
+
+1. **Create a Database Helper Class:**
+
+Create a class `BookDatabaseHelper` that extends `SQLiteOpenHelper`. This class will handle database creation and management.
+
+public class BookDatabaseHelper extends SQLiteOpenHelper {
+
+    private static final String DATABASE_NAME = "books.db";
+    private static final int DATABASE_VERSION = 1;
+    private static final String TABLE_BOOKS = "books";
+    private static final String COLUMN_ID = "id";
+    private static final String COLUMN_NAME = "name";
+
+    public BookDatabaseHelper(Context context) {
+        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+    }
+
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        String CREATE_TABLE = "CREATE TABLE " + TABLE_BOOKS + "("
+                + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_NAME + " TEXT" + ")";
+        db.execSQL(CREATE_TABLE);
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_BOOKS);
+        onCreate(db);
+    }
+
+    // Insert a book
+    public void addBook(String bookName) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_NAME, bookName);
+        db.insert(TABLE_BOOKS, null, values);
+        db.close();
+    }
+
+    // Retrieve all books
+    public List<String> getAllBooks() {
+        List<String> books = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM " + TABLE_BOOKS, null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                books.add(cursor.getString(1)); // 1 is the index of the 'name' column
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        db.close();
+        return books;
+    }
+}
+```
+
+### Step 2: Handle SharedPreferences for Button State
+
+Create a helper class `ButtonStateHelper` to manage the button color and state.
+
+public class ButtonStateHelper {
+    private static final String PREFS_NAME = "book_prefs";
+    private static final String BUTTON_STATE_PREFIX = "button_";
+
+    public static void saveButtonState(Context context, String bookName, boolean isSubscribed) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putBoolean(BUTTON_STATE_PREFIX + bookName, isSubscribed);
+        editor.apply();
+    }
+
+    public static boolean getButtonState(Context context, String bookName) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getBoolean(BUTTON_STATE_PREFIX + bookName, false);
+    }
+}
+
+
+### Step 3: Modify `onBindViewHolder` to Handle Button Click and State
+
+Modify your `onBindViewHolder` to handle the click event, save to SQLite, and change the button color using `SharedPreferences`.
+
+
+@Override
+public void onBindViewHolder(@NonNull BookAdapter.BookViewHolder holder, int position) {
+    BookModel data = bookList.get(position);
+    holder.bookName.setText(data.getbName());
+
+    // Check if the book is already subscribed using SharedPreferences
+    boolean isSubscribed = ButtonStateHelper.getButtonState(holder.itemView.getContext(), data.getbName());
+
+    // Set the button text and color based on subscription state
+    if (isSubscribed) {
+        holder.subscribeButton.setText("Subscribed");
+        holder.subscribeButton.setBackgroundColor(Color.GREEN);
+    } else {
+        holder.subscribeButton.setText("Subscribe");
+        holder.subscribeButton.setBackgroundColor(Color.GRAY);
+    }
+
+    // Handle Subscribe Button Click
+    holder.subscribeButton.setOnClickListener(new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if (!isSubscribed) {
+                // Add book to SQLite database
+                BookDatabaseHelper db = new BookDatabaseHelper(v.getContext());
+                db.addBook(data.getbName());
+
+                // Update button state and save it
+                ButtonStateHelper.saveButtonState(v.getContext(), data.getbName(), true);
+                
+                // Change button text and background color
+                holder.subscribeButton.setText("Subscribed");
+                holder.subscribeButton.setBackgroundColor(Color.GREEN);
+
+                Toast.makeText(v.getContext(), data.getbName() + " subscribed", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(v.getContext(), data.getbName() + " is already subscribed", Toast.LENGTH_SHORT).show();
+            }
+        }
+    });
+}
+
+
+### Step 4: Display Data from SQLite in RecyclerView
+
+When you start the activity or fragment, fetch the subscribed books from the SQLite database and display them in the `RecyclerView`.
+
+
+// Fetch data from the SQLite database and display in RecyclerView
+private void loadSubscribedBooks() {
+    BookDatabaseHelper db = new BookDatabaseHelper(this);
+    List<String> subscribedBooks = db.getAllBooks();
+
+    ArrayList<BookModel> bookModels = new ArrayList<>();
+    for (String bookName : subscribedBooks) {
+        bookModels.add(new BookModel(bookName));
+    }
+
+    adapter = new BookAdapter(bookModels);
+    bookRecycleView.setAdapter(adapter);
+}
+
+
+### Step 5: Call the Method in `onCreate`
+
+In your `Activity` or `Fragment`, call `loadSubscribedBooks()` after setting up the `RecyclerView`:
+
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
+
+    bookRecycleView = findViewById(R.id.recyclerViewId);
+    bookRecycleView.setLayoutManager(new GridLayoutManager(this, 2));
+
+    loadSubscribedBooks();  // Load subscribed books from SQLite
+}
+
