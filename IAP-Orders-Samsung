@@ -1,0 +1,219 @@
+If you don't have data from the API yet, but you want to store users' payment history as they make purchases and later fetch it to display in a `RecyclerView`, you can follow this approach:
+
+1. **Store Payment History Locally**: Every time a user completes a purchase, save the details (such as `itemTitle`, `usdPrice`, and `status`) locally. You can use either an SQLite database or SharedPreferences. For more complex data, an SQLite database is the preferred option.
+   
+2. **Fetch Payment History Locally**: Retrieve this locally stored data and show it in the `RecyclerView`.
+
+3. **Use OkHttp for Network Calls**: You can implement OkHttp for network communication when interacting with Samsung IAP's Orders API. Once the purchase is made, send the data to your server or store it locally.
+
+Here's how you can achieve it:
+
+### Step-by-Step Implementation:
+
+1. **Store Data Locally Using SQLite**:
+    - Each time a purchase is successful, save the payment details in an SQLite database.
+
+2. **Use OkHttp for Network Calls**:
+    - Use OkHttp for making the network request to Samsung's API for retrieving order history.
+
+### Full Code Implementation:
+
+#### 1. **SQLite Database Helper Class** (`DatabaseHelper.java`)
+
+```java
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class DatabaseHelper extends SQLiteOpenHelper {
+
+    private static final String DATABASE_NAME = "payments.db";
+    private static final int DATABASE_VERSION = 1;
+
+    private static final String TABLE_PAYMENTS = "payments";
+    private static final String COLUMN_ID = "id";
+    private static final String COLUMN_TITLE = "itemTitle";
+    private static final String COLUMN_PRICE = "usdPrice";
+    private static final String COLUMN_STATUS = "status";
+
+    public DatabaseHelper(Context context) {
+        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+    }
+
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        String CREATE_TABLE = "CREATE TABLE " + TABLE_PAYMENTS + "("
+                + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+                + COLUMN_TITLE + " TEXT, "
+                + COLUMN_PRICE + " TEXT, "
+                + COLUMN_STATUS + " TEXT" + ")";
+        db.execSQL(CREATE_TABLE);
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_PAYMENTS);
+        onCreate(db);
+    }
+
+    // Method to add a new payment
+    public void addPayment(String title, String price, String status) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_TITLE, title);
+        values.put(COLUMN_PRICE, price);
+        values.put(COLUMN_STATUS, status);
+        db.insert(TABLE_PAYMENTS, null, values);
+        db.close();
+    }
+
+    // Method to retrieve all payments
+    public List<Order> getAllPayments() {
+        List<Order> paymentList = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM " + TABLE_PAYMENTS, null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                String title = cursor.getString(cursor.getColumnIndex(COLUMN_TITLE));
+                String price = cursor.getString(cursor.getColumnIndex(COLUMN_PRICE));
+                String status = cursor.getString(cursor.getColumnIndex(COLUMN_STATUS));
+                paymentList.add(new Order(title, price, status));
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        db.close();
+        return paymentList;
+    }
+}
+```
+
+#### 2. **Order Adapter** (`OrderAdapter.java`)
+
+Same as earlier, this class remains unchanged.
+
+#### 3. **OkHttp Network Call to Retrieve Payment Data** (`OrderHistoryActivity.java`)
+
+Instead of using Volley, we will now use OkHttp for network communication. Here's how to do it:
+
+```java
+import android.os.Bundle;
+import android.util.Log;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+
+public class OrderHistoryActivity extends AppCompatActivity {
+
+    private RecyclerView recyclerView;
+    private OrderAdapter orderAdapter;
+    private List<Order> orderList;
+
+    private static final String API_URL = "https://devapi.samsungapps.com/iap/seller/orders";
+    private static final String SERVICE_ACCOUNT_ID = "85412253-21b2-4d84-8ff5-4b0b6d86ad6e";
+    private static final String ACCESS_TOKEN = "0DjT9yzrYUKDoGbVUlOnCUgQ";
+    private static final String SELLER_SEQ = "000000067360";
+
+    private DatabaseHelper databaseHelper;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_order_history);
+
+        recyclerView = findViewById(R.id.recyclerView);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        orderList = new ArrayList<>();
+        orderAdapter = new OrderAdapter(orderList);
+        recyclerView.setAdapter(orderAdapter);
+
+        databaseHelper = new DatabaseHelper(this);
+
+        fetchOrderHistoryFromServer();
+    }
+
+    // Fetch order history using OkHttp
+    private void fetchOrderHistoryFromServer() {
+        OkHttpClient client = new OkHttpClient();
+
+        Request request = new Request.Builder()
+                .url(API_URL)
+                .addHeader("service-account-id", SERVICE_ACCOUNT_ID)
+                .addHeader("access-token", ACCESS_TOKEN)
+                .addHeader("sellerSeq", SELLER_SEQ)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.e("OrderHistory", "Failed to fetch order history: " + e.getMessage());
+                runOnUiThread(() -> fetchOrderHistoryFromLocalDatabase());
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                if (response.isSuccessful()) {
+                    try {
+                        String responseData = response.body().string();
+                        JSONObject jsonResponse = new JSONObject(responseData);
+                        JSONArray ordersArray = jsonResponse.getJSONArray("orders");
+
+                        for (int i = 0; i < ordersArray.length(); i++) {
+                            JSONObject orderObj = ordersArray.getJSONObject(i);
+                            String itemTitle = orderObj.getString("itemTitle");
+                            String usdPrice = orderObj.getString("usdPrice");
+                            String status = orderObj.getString("status");
+
+                            // Add to local SQLite database
+                            databaseHelper.addPayment(itemTitle, usdPrice, status);
+
+                            // Add to list to display in RecyclerView
+                            orderList.add(new Order(itemTitle, usdPrice, status));
+                        }
+
+                        runOnUiThread(() -> orderAdapter.notifyDataSetChanged());
+
+                    } catch (JSONException e) {
+                        Log.e("OrderHistory", "JSON Parsing error: " + e.getMessage());
+                        runOnUiThread(() -> fetchOrderHistoryFromLocalDatabase());
+                    }
+                } else {
+                    runOnUiThread(() -> fetchOrderHistoryFromLocalDatabase());
+                }
+            }
+        });
+    }
+
+    // Fetch order history from local SQLite database
+    private void fetchOrderHistoryFromLocalDatabase() {
+        orderList.clear();
+        orderList.addAll(databaseHelper.getAllPayments());
+        orderAdapter.notifyDataSetChanged();
+    }
+}
+```
+
+ ----------------------------------
+
+
