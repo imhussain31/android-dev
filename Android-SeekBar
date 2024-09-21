@@ -1,0 +1,57 @@
+##XML code 
+<?xml version="1.0" encoding="utf-8"?>  
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"  
+    xmlns:app="http://schemas.android.com/apk/res-auto"  
+    xmlns:tools="http://schemas.android.com/tools"  
+    android:layout_width="match_parent"  
+    android:layout_height="match_parent"  
+    tools:context="example.javatpoint.com.seekbar.MainActivity">  
+  
+  
+    <SeekBar  
+        android:id="@+id/seekBar"  
+        android:layout_width="match_parent"  
+        android:layout_height="wrap_content"  
+        android:layout_marginEnd="8dp"  
+        android:layout_marginStart="8dp"  
+        android:layout_marginTop="372dp"  
+        app:layout_constraintEnd_toEndOf="parent"  
+        app:layout_constraintStart_toStartOf="parent"  
+        app:layout_constraintTop_toTopOf="parent" />  
+</android.support.constraint.ConstraintLayout>
+----
+##Java Code
+package example.javatpoint.com.seekbar;  
+  
+import android.support.v7.app.AppCompatActivity;  
+import android.os.Bundle;  
+import android.widget.SeekBar;  
+import android.widget.Toast;  
+  
+public class MainActivity extends AppCompatActivity {  
+    SeekBar seekBar;  
+    @Override  
+    protected void onCreate(Bundle savedInstanceState) {  
+        super.onCreate(savedInstanceState);  
+        setContentView(R.layout.activity_main);  
+  
+        seekBar=(SeekBar)findViewById(R.id.seekBar);  
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {  
+            @Override  
+            public void onProgressChanged(SeekBar seekBar, int progress,  
+                                          boolean fromUser) {  
+                Toast.makeText(getApplicationContext(),"seekbar progress: "+progress, Toast.LENGTH_SHORT).show();  
+            }  
+  
+            @Override  
+            public void onStartTrackingTouch(SeekBar seekBar) {  
+                Toast.makeText(getApplicationContext(),"seekbar touch started!", Toast.LENGTH_SHORT).show();  
+            }  
+  
+            @Override  
+            public void onStopTrackingTouch(SeekBar seekBar) {  
+                Toast.makeText(getApplicationContext(),"seekbar touch stopped!", Toast.LENGTH_SHORT).show();  
+            }  
+        });  
+    }  
+}  
