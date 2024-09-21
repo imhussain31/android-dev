@@ -1,4 +1,3 @@
-If you don't have data from the API yet, but you want to store users' payment history as they make purchases and later fetch it to display in a `RecyclerView`, you can follow this approach:
 
 
 
