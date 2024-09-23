@@ -1,1 +1,173 @@
 
+Samsung's IAP SDK allows you to interact with subscriptions using its Request API. Here’s a comprehensive guide to implement refund, revoke, cancel, and check status functionality via the Samsung Subscription Request API:
+
+Prerequisites
+
+Ensure you have integrated the Samsung IAP SDK into your app.
+
+You need your App ID and IAP API Key from the Samsung Seller Office.
+
+
+Step 1: Set Up Your Server
+
+Samsung IAP Request APIs are intended to be used from your secure backend server. You should set up a server that will communicate with Samsung's API to manage subscriptions.
+
+Step 2: Subscription Management API Endpoints
+
+Samsung provides the following API endpoints to manage subscriptions:
+
+1. Check Status: /verifyIAPReceipt
+
+
+2. Cancel Subscription: /subscriptionCancel
+
+
+3. Revoke Subscription: Not directly supported through API; you can manage access on your server.
+
+
+4. Refund: Refunds must be requested manually by users through the Galaxy Store.
+
+
+
+Step 3: API Request Details
+
+The Samsung IAP Request APIs require the following headers and parameters:
+
+Headers:
+
+Authorization: <API_KEY> (Use your Samsung IAP API Key)
+
+Content-Type: application/json
+
+
+Base URL: https://iap.samsungapps.com/iap
+
+
+Step 4: Implementation Details
+
+1. Checking Subscription Status
+
+The verifyIAPReceipt endpoint verifies the status of a user's subscription.
+
+Endpoint: https://iap.samsungapps.com/iap/v6/verifyIAPReceipt
+
+Request Example (Server-side):
+
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Scanner;
+
+public class SamsungIapServer {
+    private static final String API_KEY = "YOUR_IAP_API_KEY";
+
+    public static void verifyIapReceipt(String purchaseId, String signature) throws Exception {
+        URL url = new URL("https://iap.samsungapps.com/iap/v6/verifyIAPReceipt");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Authorization", API_KEY);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setDoOutput(true);
+
+        String requestBody = String.format(
+            "{\"purchaseID\":\"%s\", \"signature\":\"%s\"}",
+            purchaseId, signature
+        );
+
+        try (OutputStream os = connection.getOutputStream()) {
+            os.write(requestBody.getBytes());
+            os.flush();
+        }
+
+        if (connection.getResponseCode() == 200) {
+            Scanner scanner = new Scanner(connection.getInputStream());
+            while (scanner.hasNext()) {
+                System.out.println(scanner.nextLine());
+            }
+            scanner.close();
+        } else {
+            System.out.println("Failed to verify receipt. Response code: " + connection.getResponseCode());
+        }
+        connection.disconnect();
+    }
+}
+
+The response will include details about the subscription such as its current status (active, expired, etc.).
+
+2. Canceling a Subscription
+
+The subscriptionCancel API allows you to cancel an active subscription.
+
+Endpoint: https://iap.samsungapps.com/iap/v6/subscriptionCancel
+
+Request Example (Server-side):
+
+public class SamsungIapServer {
+    public static void cancelSubscription(String purchaseId) throws Exception {
+        URL url = new URL("https://iap.samsungapps.com/iap/v6/subscriptionCancel");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Authorization", API_KEY);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setDoOutput(true);
+
+        String requestBody = String.format("{\"purchaseID\":\"%s\"}", purchaseId);
+
+        try (OutputStream os = connection.getOutputStream()) {
+            os.write(requestBody.getBytes());
+            os.flush();
+        }
+
+        if (connection.getResponseCode() == 200) {
+            Scanner scanner = new Scanner(connection.getInputStream());
+            while (scanner.hasNext()) {
+                System.out.println(scanner.nextLine());
+            }
+            scanner.close();
+        } else {
+            System.out.println("Failed to cancel subscription. Response code: " + connection.getResponseCode());
+        }
+        connection.disconnect();
+    }
+}
+
+The response will indicate whether the cancellation was successful.
+
+3. Revoke Subscription
+
+Samsung IAP does not provide a direct API for revoking a subscription. Instead, you should handle revocation by managing access to content on your server. When you detect that a subscription should be revoked (via status check or other business logic), update your database to prevent further access.
+
+4. Refund Process
+
+Samsung doesn’t provide a programmatic way to request a refund via API. Users must request refunds directly through the Samsung Galaxy Store. You can direct users to the appropriate refund page or include instructions within your app.
+
+Step 5: Secure Your Server
+
+Ensure all API calls to Samsung's IAP endpoints are made from a secure server.
+
+Implement authentication and authorization checks to prevent unauthorized access to your subscription management endpoints.
+
+
+Step 6: Test Your Implementation
+
+Use Samsung’s IAP_MODE_TEST_SUCCESS while testing your integration.
+
+Perform testing using test accounts registered in Samsung Seller Office.
+
+
+Permissions in AndroidManifest.xml
+
+Ensure your Android app has the necessary permissions:
+
+<uses-permission android:name="com.samsung.android.iap.permission.BILLING" />
+<uses-permission android:name="android.permission.INTERNET" />
+
+Additional Tips
+
+Regularly check the subscription status for all users, especially during app startup.
+
+Maintain logs of all API interactions for troubleshooting and audit purposes.
+
+
+By following this guide, you can successfully implement Samsung IAP subscription management, including checking status, handling cancellations, and informing users about refund procedures in your book app.
+
