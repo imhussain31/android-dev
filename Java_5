@@ -1,195 +1,191 @@
-Here’s a detailed implementation guide for integrating Samsung IAP’s Instant Server Notification (ISN) with your Java-based Android app using Android Studio. This involves both the app and server-side configuration.
+If you want to implement the Firebase Cloud Functions using Java, here’s the complete process, from setting up your server-side logic with Java to handling Samsung IAP Instant Server Notification (ISN) on Firebase:
 
-Step 1: Setting Up Your Server for ISN
+Step 1: Setting Up Your Firebase Project
 
-Before integrating ISN with your Android app, you need a server to handle notifications from Samsung. This server should be capable of receiving POST requests.
+1. Create a Firebase Project:
 
-1. Set Up a Web Server:
-
-Deploy a server using any backend technology (Node.js, Java Spring Boot, PHP, Python Flask, etc.).
-
-Ensure your server supports HTTPS, as Samsung only sends notifications over secure connections.
+Visit Firebase Console and create a new project.
 
 
 
-2. Define Your Endpoint:
+2. Enable Cloud Functions:
 
-Create an API endpoint that Samsung will call. For example, https://yourserver.com/samsung_iap_isn.
-
-
-
-3. Handle POST Requests:
-
-Your endpoint must be able to handle incoming POST requests with JSON data from Samsung.
+Navigate to your project’s dashboard and click on Functions in the left sidebar to enable it.
 
 
-Here’s a sample implementation using Java with Spring Boot:
+
+
+Step 2: Use Firebase Admin SDK with a Java Application
+
+Firebase Cloud Functions don’t directly support Java at this time. However, you can set up your own server with Java using the Firebase Admin SDK to interact with Firebase services. Here's how to handle Samsung IAP ISN using Java:
+
+Step 2.1: Setting Up a Java Web Server
+
+You can use any Java framework like Spring Boot to handle the ISN from Samsung. Here’s how you can set it up:
+
+1. Create a New Spring Boot Project:
+
+Use Spring Initializr to create a new Spring Boot project with the following dependencies:
+
+Spring Web
+
+Firebase Admin SDK
+
+
+
+
+2. Add Firebase Admin SDK Dependency to pom.xml:
+
+<dependency>
+    <groupId>com.google.firebase</groupId>
+    <artifactId>firebase-admin</artifactId>
+    <version>9.0.0</version>
+</dependency>
+
+
+3. Download the Firebase Admin SDK Private Key:
+
+In your Firebase Console, navigate to Project Settings → Service Accounts → Generate New Private Key.
+
+Download the JSON file and place it in your project’s resources directory.
+
+
+
+
+Step 3: Implement the Java Server Code
+
+3.1 Initialize Firebase Admin SDK in Java
+
+Create a configuration class to initialize Firebase:
+
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import org.springframework.context.annotation.Configuration;
+
+import javax.annotation.PostConstruct;
+import java.io.FileInputStream;
+import java.io.IOException;
+
+@Configuration
+public class FirebaseConfig {
+
+    @PostConstruct
+    public void initialize() {
+        try {
+            FileInputStream serviceAccount = new FileInputStream("src/main/resources/firebase-adminsdk.json");
+
+            FirebaseOptions options = FirebaseOptions.builder()
+                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                    .setDatabaseUrl("https://<your-project-id>.firebaseio.com")
+                    .build();
+
+            FirebaseApp.initializeApp(options);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+Replace "src/main/resources/firebase-adminsdk.json" with the actual path to your Firebase service account key.
+
+3.2 Create a REST Controller to Handle ISN
+
+Create a controller to handle POST requests from Samsung IAP:
+
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/iap")
-public class SamsungIAPController {
+public class SamsungIapController {
 
+    // Endpoint to handle Samsung IAP ISN
     @PostMapping("/isn")
-    public ResponseEntity<String> receiveISN(@RequestBody Map<String, Object> payload) {
-        // Log the received payload
-        System.out.println("Received ISN payload: " + payload);
+    public ResponseEntity<String> handleISN(@RequestBody Map<String, Object> payload) {
+        try {
+            System.out.println("Received ISN payload: " + payload);
 
-        // Extract necessary information
-        String purchaseId = (String) payload.get("purchaseId");
-        String status = (String) payload.get("status");
+            // Extract relevant data
+            String purchaseId = (String) payload.get("purchaseId");
+            String status = (String) payload.get("status");
+            String productId = (String) payload.get("productId");
 
-        // Process the notification based on the status (e.g., 'ACTIVE', 'EXPIRED', 'CANCELED')
-        switch (status) {
-            case "ACTIVE":
-                // Handle active subscription
-                break;
-            case "EXPIRED":
-                // Handle expired subscription
-                break;
-            case "CANCELED":
-                // Handle canceled subscription
-                break;
-            default:
-                System.out.println("Unknown status received: " + status);
-                break;
-        }
+            // Initialize Firebase Database Reference
+            DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference();
 
-        // Send a 200 OK response back to Samsung
-        return ResponseEntity.ok("Notification received");
-    }
-}
+            // Update the data in Firebase Realtime Database
+            databaseReference.child("subscriptions").child(purchaseId).setValueAsync(payload);
 
-This example uses the Spring Boot framework to handle POST requests to /iap/isn.
-
-
-4. Verify the Authenticity:
-
-You need to implement a security check using the verifySignature field provided in the JSON payload from Samsung to ensure the request is genuine.
-
-
-
-
-Step 2: Register Your ISN URL with Samsung IAP
-
-1. Access the Samsung IAP Developer Portal:
-
-Log in to Samsung IAP Seller Portal with your developer account.
-
-
-
-2. Register Your App:
-
-Go to "Applications" → Select your app or create a new one.
-
-
-
-3. Set the ISN URL:
-
-Go to "Monetization" → "In-App Purchase" → "Instant Server Notification".
-
-Enter your server’s ISN URL (e.g., https://yourserver.com/iap/isn) and save the changes.
-
-
-
-
-Step 3: Implement IAP in Your Android App
-
-1. Add Samsung IAP SDK to Your Project
-
-Add the Samsung IAP library to your build.gradle file:
-
-dependencies {
-    implementation 'com.sec.android.iap:iap:5.1.0'
-}
-
-2. Initialize Samsung IAP in Your App
-
-Create a class to manage Samsung IAP:
-
-public class SamsungIapHelper {
-    private static final int REQUEST_CODE = 1001; // Unique request code
-    private Activity activity;
-
-    public SamsungIapHelper(Activity activity) {
-        this.activity = activity;
-    }
-
-    public void initializeIap() {
-        IapHelper iapHelper = new IapHelper(activity, REQUEST_CODE);
-        iapHelper.setOperationMode(IapHelper.OperationMode.OPERATION_MODE_PRODUCTION);
-    }
-
-    public void startPurchase(String productId) {
-        IapHelper iapHelper = new IapHelper(activity, REQUEST_CODE);
-        iapHelper.startPurchase(productId);
-    }
-
-    public void handleActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_CODE) {
-            IapHelper iapHelper = new IapHelper(activity, REQUEST_CODE);
-            iapHelper.handlePurchaseResult(data);
+            return ResponseEntity.status(HttpStatus.OK).body("ISN notification processed successfully.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
         }
     }
 }
 
-Step 4: Handling the IAP Purchase Status in Your App
+Step 4: Deploying Your Java Server
 
-1. Implement the logic to handle purchase states:
+1. Run Your Spring Boot Application:
 
-You can check the status of purchases locally within the app, but it's crucial to synchronize with your server using ISN notifications to manage user access.
+Start your Spring Boot application by running the main method in your Application.java class:
 
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-
-
-Integrate Samsung IAP into Your Activity
-
-public class MainActivity extends AppCompatActivity {
-    private SamsungIapHelper samsungIapHelper;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        samsungIapHelper = new SamsungIapHelper(this);
-        samsungIapHelper.initializeIap();
-    }
-
-    public void onPurchaseButtonClick(View view) {
-        String productId = "your_product_id"; // The product ID to purchase
-        samsungIapHelper.startPurchase(productId);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        samsungIapHelper.handleActivityResult(requestCode, resultCode, data);
+@SpringBootApplication
+public class Application {
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
     }
 }
 
-Step 5: Testing ISN and Samsung IAP Integration
-
-1. Test in a development environment:
-
-Ensure you use test products and Samsung accounts to avoid real charges during testing.
 
 
+2. Expose Your Server:
 
-2. Simulate ISN:
+If you are running your server locally, you can use tools like ngrok to expose your local server to the internet:
 
-You can use tools like Postman to send test POST requests to your server’s endpoint to ensure it handles the notifications correctly.
+ngrok http 8080
+
+This will provide you with a public URL (e.g., https://abcd1234.ngrok.io) to use for testing.
 
 
 
 
-Important Points to Note
+Step 5: Register Your Endpoint with Samsung IAP
 
-Security: Implement signature validation to authenticate incoming ISN notifications.
-
-Database Updates: Store purchase details in your database to manage user access and subscription status efficiently.
-
-Error Handling: Implement robust error handling for network errors, failed purchases, and other scenarios.
+1. Log in to the Samsung IAP Seller Portal.
 
 
-This comprehensive guide should help you set up the Samsung IAP ISN in your Android app and backend server. If you need more help on specific steps, feel free to ask!
+2. Navigate to Monetization → In-App Purchase → Instant Server Notification.
+
+
+3. Enter your endpoint URL (e.g., https://your-domain.com/iap/isn) or your ngrok URL (e.g., https://abcd1234.ngrok.io/iap/isn).
+
+
+
+Step 6: Testing Your Setup
+
+Use the Samsung IAP test environment to simulate purchases and check if your Firebase Database is updated correctly.
+
+You can also manually test the endpoint using tools like Postman to send POST requests.
+
+
+Note: Important Points
+
+Security: Always validate incoming requests to ensure they are from Samsung and not spoofed. You can validate using a signature sent by Samsung with each request.
+
+Firebase Database: You can choose to store data in Firebase Realtime Database or Firestore. Adjust the Firebase configuration and interaction code accordingly.
+
+
+Summary
+
+You have now set up a Java server using Spring Boot that listens for Samsung ISN notifications and updates the Firebase Realtime Database. This method effectively integrates Samsung IAP with Firebase while leveraging Java for server-side logic.
 
