@@ -1,14 +1,220 @@
-Samsung In-App Purchase (IAP) Subscriptions provide developers with a robust solution for offering recurring digital content and services to users directly within their apps. This service is ideal for apps that require a subscription model, such as streaming services, premium content providers, or apps with regular updates and exclusive features. By integrating Samsung IAP, developers can easily implement recurring billing for their users, enabling seamless access to content based on different subscription periods—whether it’s weekly, monthly, or yearly.
+Here's the detailed blog in a professional, easy-to-follow format:
 
-The subscription model in Samsung IAP is designed to offer flexibility and convenience for both developers and users. Once a user subscribes to a service, they are automatically charged at the start of each billing cycle, and their subscription is renewed without requiring additional input from them. This auto-renewal process ensures uninterrupted access to the app's premium content, while developers can focus on enhancing user experiences without worrying about manual billing cycles.
+---
 
-To manage these subscriptions, the Samsung IAP API provides developers with several essential functions. The Purchase Subscription API allows users to initiate a subscription, providing the transaction details upon successful payment. After the subscription is active, developers can use the Check Subscription Status API to verify its current state—whether it is active, paused, or expired. If a user wishes to end their subscription, the Cancel Subscription API allows them to cancel it, either immediately or at the end of the billing period.
+## Step-by-Step Guide to Implementing Samsung IAP ISN Using Spring Boot
 
-Additionally, developers can handle refund requests or early cancellations using the Revoke Subscription API, which terminates a subscription before the billing cycle ends. Samsung IAP also supports prorating for scenarios where users upgrade or downgrade their subscription plans, ensuring that users only pay for what they use, even when switching plans mid-cycle.
+### Introduction
+In-app purchases are crucial for many apps, and Samsung's In-App Purchase (IAP) service helps developers manage purchases, subscriptions, and refunds efficiently. To keep your app in sync with user transactions, **Samsung Instant Server Notification (ISN)** sends real-time notifications to your backend when purchase-related events occur. In this guide, I’ll show you how to build a Spring Boot server that handles these notifications.
 
-Another key feature is the Grace Period, which allows users to retain access to the service temporarily, even if there is a payment failure. This helps maintain a positive user experience while resolving billing issues.
+### Step 1: Set Up Your Spring Boot Project
 
-Security is a critical aspect of Samsung IAP Subscriptions, with features like transaction signature verification ensuring that all subscription transactions are legitimate and tamper-proof. This safeguards both users and developers from fraudulent transactions.
+#### 1.1. Use Spring Initializer to Create a Spring Boot Project
 
-In summary, Samsung IAP Subscriptions provide a comprehensive and secure framework for developers to implement subscription-based models within their apps, ensuring a smooth and user-friendly experience while maximizing revenue through recurring payments.
+Head over to **[Spring Initializer](https://start.spring.io/)** and create your project with the following dependencies:
 
+- **Spring Web** (for creating REST APIs)
+- **Spring Boot DevTools** (optional, for hot reloads)
+- **Lombok** (optional, to reduce boilerplate code)
+- **Spring Data JPA** (optional, if you plan to use a database)
+
+Once you’ve chosen your dependencies, **generate** and download the project.
+
+#### 1.2. Import the Project into Your IDE
+
+Open the project in your preferred IDE (e.g., IntelliJ, Eclipse) and ensure that it runs successfully by creating a basic controller to test.
+
+```java
+@RestController
+public class HelloController {
+
+    @GetMapping("/hello")
+    public String sayHello() {
+        return "Hello, Samsung IAP!";
+    }
+}
+```
+
+Run the application to verify everything works.
+
+---
+
+### Step 2: Set Up Your ISN Endpoint
+
+#### 2.1. Create a Controller for ISN Notifications
+
+The server receives **POST** requests from Samsung IAP containing ISN notifications. Here’s how to create the endpoint:
+
+```java
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/iap")
+public class IapController {
+
+    @PostMapping("/isn")
+    public ResponseEntity<String> handleISN(@RequestBody String requestBody,
+                                            @RequestHeader("X-Signature") String signature) {
+        // Log the received ISN notification
+        System.out.println("Received ISN notification: " + requestBody);
+
+        // Process the ISN notification (handle purchase status, etc.)
+        processISN(requestBody, signature);
+
+        // Return success response
+        return ResponseEntity.ok("ISN processed");
+    }
+
+    private void processISN(String requestBody, String signature) {
+        // Implement your business logic, like updating the database
+        System.out.println("Processing ISN: " + requestBody);
+    }
+}
+```
+
+- **Endpoint:** `/iap/isn` receives POST requests.
+- **RequestBody:** Contains the ISN payload (JSON format).
+- **X-Signature:** Used to verify the authenticity of the request (discussed in the next step).
+
+---
+
+### Step 3: Set Up Verification for Samsung's X-Signature
+
+Samsung sends an **X-Signature** header with each notification, which you must verify using their public key to ensure the message's authenticity.
+
+#### 3.1. Get Your Public Key
+
+You can find the public key in the **Samsung Galaxy Store Console** under the IAP section for your app.
+
+#### 3.2. Verify the X-Signature
+
+```java
+import java.security.Signature;
+import java.security.KeyFactory;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
+
+public class IapController {
+
+    private static final String PUBLIC_KEY = "YOUR_SAMSUNG_PUBLIC_KEY";
+
+    private boolean verifySignature(String data, String signature) throws Exception {
+        byte[] publicKeyBytes = Base64.getDecoder().decode(PUBLIC_KEY);
+        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKeyBytes);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        Signature sig = Signature.getInstance("SHA256withRSA");
+        sig.initVerify(keyFactory.generatePublic(keySpec));
+        sig.update(data.getBytes());
+        return sig.verify(Base64.getDecoder().decode(signature));
+    }
+
+    @PostMapping("/isn")
+    public ResponseEntity<String> handleISN(@RequestBody String requestBody,
+                                            @RequestHeader("X-Signature") String signature) {
+        try {
+            if (verifySignature(requestBody, signature)) {
+                processISN(requestBody, signature);
+                return ResponseEntity.ok("ISN processed");
+            } else {
+                return ResponseEntity.status(400).body("Invalid Signature");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+}
+```
+
+---
+
+### Step 4: Deploy Your Server
+
+#### 4.1. Use Ngrok for Local Testing
+
+- Download and install **Ngrok**.
+- Run your Spring Boot server locally (e.g., `localhost:8080`).
+- Use Ngrok to expose a public URL: `ngrok http 8080`.
+- Set the **Ngrok URL** in the **Samsung Galaxy Store Console** under ISN settings.
+
+#### 4.2. Deploy to Heroku or AWS
+
+For a more stable deployment, consider using a platform like **Heroku** or **AWS** to host your Spring Boot application and generate a permanent URL for your ISN endpoint.
+
+---
+
+### Step 5: Test Your Server with Postman
+
+Before using Samsung’s test tools, ensure your server is working properly using **Postman**.
+
+#### 5.1. Simulate a POST Request
+
+Create a POST request to your endpoint (`http://localhost:8080/iap/isn` or your deployed URL) and send a sample JSON body:
+
+```json
+{
+  "status": "SUBSCRIPTION_PURCHASED",
+  "itemId": "book_subscription_id",
+  "purchaseDate": "2024-09-30T12:34:56Z",
+  "transactionId": "unique_transaction_id"
+}
+```
+
+Verify that your server receives and processes the data.
+
+---
+
+### Step 6: Handle Different ISN Event Types
+
+Samsung sends notifications for various events like purchase, renewal, or cancellation. Modify your logic to handle these:
+
+```java
+private void processISN(String requestBody, String signature) {
+    if (requestBody.contains("SUBSCRIPTION_PURCHASED")) {
+        System.out.println("Processing subscription purchase...");
+    } else if (requestBody.contains("SUBSCRIPTION_RENEWED")) {
+        System.out.println("Processing subscription renewal...");
+    } else if (requestBody.contains("SUBSCRIPTION_CANCELED")) {
+        System.out.println("Processing subscription cancellation...");
+    }
+}
+```
+
+---
+
+### Step 7: Test ISN in Samsung’s Console
+
+Go to the **Samsung Galaxy Store Console** → Your App → **ISN Settings**. Use the **Test Notification Tool** to send a sample ISN event and confirm that your server processes it correctly.
+
+---
+
+### Step 8: Persist Data (Optional)
+
+If you’re using a database, store the subscription data from the ISN notifications using **Spring Data JPA**:
+
+```java
+@Entity
+public class Subscription {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String itemId;
+    private String status;
+    private Date purchaseDate;
+}
+
+@Repository
+public interface SubscriptionRepository extends JpaRepository<Subscription, Long> {}
+```
+
+---
+
+### Conclusion
+
+By following this guide, you now have a fully functional Spring Boot server capable of receiving and processing **Samsung IAP ISN** notifications. Thorough testing with both Postman and Samsung’s tools ensures a robust implementation.
+
+If you encounter any issues, don’t hesitate to reach out!
+
+---
+
+This step-by-step blog post is tailored for easy understanding, including code snippets and clear explanations. Let me know if you'd like to add anything!
