@@ -1,195 +1,180 @@
-To implement Samsung's IAP Orders API (server-to-server) using Spring Boot, here's a step-by-step guide covering the setup, server creation, sending POST requests, and getting responses.
+To call the API using Retrofit in Android Studio and display the response in a `TextView`, follow these steps:
 
-Steps:
+### Step 1: Add Retrofit Dependency
+Add the Retrofit and GSON dependencies in your `build.gradle` file:
+```gradle
+implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+```
 
-1. Create a Spring Boot Project
+### Step 2: Create API Interface
+Create an interface that defines the API call.
 
-You can create a Spring Boot project from scratch using Spring Initializr or your IDE.
+```java
+import retrofit2.Call;
+import retrofit2.http.Body;
+import retrofit2.http.Header;
+import retrofit2.http.Headers;
+import retrofit2.http.POST;
 
-Add necessary dependencies:
+public interface SamsungIAPService {
 
-Spring Web (for RESTful APIs)
+    @POST("iap/seller/orders")
+    Call<IAPResponse> getOrders(
+        @Header("Authorization") String token,
+        @Header("service-account-id") String serviceAccountId,
+        @Body IAPRequest request
+    );
+}
+```
 
-Spring Boot DevTools (for easier development)
+### Step 3: Create Request and Response Models
 
-Spring Security (optional, for secure authentication if needed)
+Define the request model (`IAPRequest`) and response model (`IAPResponse`) according to the API:
 
+#### Request Model:
+```java
+public class IAPRequest {
+    private String sellerSeq;
+    private String packageName;
+    private String requestDate;
+    private String continuationToken;
 
-You can generate a pom.xml or build.gradle with these dependencies.
-
-<dependencies>
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-devtools</artifactId>
-        <scope>runtime</scope>
-    </dependency>
-</dependencies>
-
-
-2. Set Up Application Properties
-
-To manage your IAP API credentials and base URL, add the following configuration to your application.properties or application.yml file:
-
-samsung.iap.api.url=https://iap.samsungapps.com/iap/orders/v1
-samsung.iap.api.clientId=YOUR_CLIENT_ID
-samsung.iap.api.clientSecret=YOUR_CLIENT_SECRET
-
-3. Create a Service to Handle API Communication
-
-This service will be responsible for making the API call to Samsung IAP Orders API.
-
-package com.example.iap;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
-import java.util.Collections;
-
-@Service
-public class IapOrderService {
-
-    @Value("${samsung.iap.api.url}")
-    private String apiUrl;
-
-    @Value("${samsung.iap.api.clientId}")
-    private String clientId;
-
-    @Value("${samsung.iap.api.clientSecret}")
-    private String clientSecret;
-
-    private final RestTemplate restTemplate;
-
-    public IapOrderService(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
-    }
-
-    public ResponseEntity<String> sendOrderRequest(String purchaseToken) {
-        // Prepare the headers
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-
-        // Optionally, set the Authorization header
-        String credentials = clientId + ":" + clientSecret;
-        String encodedCredentials = new String(Base64.getEncoder().encode(credentials.getBytes()));
-        headers.set("Authorization", "Basic " + encodedCredentials);
-
-        // Create the request body
-        String requestBody = "{ \"purchaseToken\": \"" + purchaseToken + "\" }";
-
-        HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
-
-        // Send the request
-        ResponseEntity<String> response = restTemplate.exchange(
-                apiUrl, HttpMethod.POST, request, String.class);
-
-        return response;
+    public IAPRequest(String sellerSeq, String packageName, String requestDate, String continuationToken) {
+        this.sellerSeq = sellerSeq;
+        this.packageName = packageName;
+        this.requestDate = requestDate;
+        this.continuationToken = continuationToken;
     }
 }
+```
 
-4. Create the Controller
+#### Response Model:
+Create the response model based on the API response structure:
+```java
+public class IAPResponse {
+    // Define the fields based on the response you expect
+    private String status;
+    private String message;
+    // Add other fields as necessary based on your API response structure
 
-This will expose an endpoint to handle incoming requests from your app.
-
-package com.example.iap;
-
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-@RestController
-@RequestMapping("/iap")
-public class IapController {
-
-    private final IapOrderService iapOrderService;
-
-    public IapController(IapOrderService iapOrderService) {
-        this.iapOrderService = iapOrderService;
+    // Getters and setters
+    public String getStatus() {
+        return status;
     }
 
-    @PostMapping("/order")
-    public ResponseEntity<String> order(@RequestBody PurchaseRequest request) {
-        return iapOrderService.sendOrderRequest(request.getPurchaseToken());
+    public String getMessage() {
+        return message;
     }
 }
+```
 
-Create a PurchaseRequest class to handle the incoming POST request.
+### Step 4: Set Up Retrofit Client
 
-package com.example.iap;
+```java
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
-public class PurchaseRequest {
+public class RetrofitClient {
+    private static Retrofit retrofit = null;
 
-    private String purchaseToken;
-
-    // Getter and Setter
-    public String getPurchaseToken() {
-        return purchaseToken;
-    }
-
-    public void setPurchaseToken(String purchaseToken) {
-        this.purchaseToken = purchaseToken;
+    public static Retrofit getClient() {
+        if (retrofit == null) {
+            retrofit = new Retrofit.Builder()
+                .baseUrl("https://devapi.samsungapps.com/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+        }
+        return retrofit;
     }
 }
+```
 
-5. Test Your Server
+### Step 5: Make the API Call in Your Activity
 
-Start your Spring Boot application and test it by sending a POST request to the /iap/order endpoint.
+In your `Activity` or `Fragment`, you can now use Retrofit to make the API call and display the result in a `TextView`.
 
+```java
+import android.os.Bundle;
+import android.widget.TextView;
+import androidx.appcompat.app.AppCompatActivity;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
-Example using cURL:
+public class MainActivity extends AppCompatActivity {
 
-curl -X POST http://localhost:8080/iap/order \
-    -H "Content-Type: application/json" \
-    -d '{"purchaseToken": "your-purchase-token"}'
+    private TextView textViewResponse;
 
-You should get a response from Samsung IAP Orders API that includes details of the order status.
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-6. Error Handling (Optional)
+        textViewResponse = findViewById(R.id.textViewResponse);
 
-To handle errors and exceptions (e.g., if the API request fails), you can enhance the service to throw appropriate exceptions and return meaningful responses to your app.
+        SamsungIAPService service = RetrofitClient.getClient().create(SamsungIAPService.class);
 
-try {
-    ResponseEntity<String> response = restTemplate.exchange(
-        apiUrl, HttpMethod.POST, request, String.class);
-    return response;
-} catch (HttpClientErrorException | HttpServerErrorException e) {
-    // Handle specific HTTP errors (e.g., 4xx or 5xx)
-    return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
-} catch (Exception e) {
-    // Handle other errors
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error occurred");
+        // Create the request object
+        IAPRequest request = new IAPRequest(
+            "000123456789",
+            "com.samsung.android.sample",
+            "20230615",
+            "e5ec039730164c50277f9a231b74c1b6e035d9184160d8b3d6b3de1f62691328fbe4c0c4863da52b3bcecef44a4c7acb974c674728c3cb173cb339bd41783f2c"
+        );
+
+        // Make the API call
+        Call<IAPResponse> call = service.getOrders(
+            "Bearer <your-access-token>",
+            "<your-service-account-id>",
+            request
+        );
+
+        call.enqueue(new Callback<IAPResponse>() {
+            @Override
+            public void onResponse(Call<IAPResponse> call, Response<IAPResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    IAPResponse iapResponse = response.body();
+                    // Display the response in the TextView
+                    textViewResponse.setText("Status: " + iapResponse.getStatus() + "\nMessage: " + iapResponse.getMessage());
+                } else {
+                    textViewResponse.setText("Request failed: " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<IAPResponse> call, Throwable t) {
+                textViewResponse.setText("Error: " + t.getMessage());
+            }
+        });
+    }
 }
+```
 
-Additional Points:
+### Step 6: Layout XML (`activity_main.xml`)
 
-1. Security Considerations:
+Create a simple layout with a `TextView` to show the response:
 
-Use HTTPS in production.
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
 
-Store credentials securely using a service like AWS Secrets Manager or Vault.
+    <TextView
+        android:id="@+id/textViewResponse"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Waiting for response..."
+        android:textSize="16sp"/>
+</LinearLayout>
+```
 
-
-
-2. Authentication:
-
-Samsung IAP may require OAuth 2.0 for secure API access. You can use Spring Security OAuth 2.0 if needed.
-
-
-
-3. Testing:
-
-Use a tool like Postman or cURL to test the API calls.
-
-Add unit tests using JUnit and MockMvc to test the endpoints.
-
-
-
-
-This guide provides a foundation for implementing Samsung IAP Orders API with Spring Boot. Let me know if you need further clarification or additional features, like authentication.
-
-
+### Explanation:
+1. **Retrofit Interface**: Defines the POST request for retrieving orders from Samsung IAP.
+2. **Request Model**: Contains the body data required for the POST request.
+3. **Response Model**: Maps the JSON response from the API.
+4. **Retrofit Client**: Configures Retrofit with a base URL and JSON converter.
+5. **MainActivity**: Makes the API request and displays the response in a `TextView`.
