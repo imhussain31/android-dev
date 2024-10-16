@@ -1,220 +1,61 @@
-Here's the detailed blog in a professional, easy-to-follow format:
+Here is how you can create an OkHttpClient POST request with the provided cURL in Java:
 
----
+import okhttp3.*;
 
-## Step-by-Step Guide to Implementing Samsung IAP ISN Using Spring Boot
+public class Main {
+    public static void main(String[] args) {
+        // Initialize OkHttpClient
+        OkHttpClient client = new OkHttpClient();
 
-### Introduction
-In-app purchases are crucial for many apps, and Samsung's In-App Purchase (IAP) service helps developers manage purchases, subscriptions, and refunds efficiently. To keep your app in sync with user transactions, **Samsung Instant Server Notification (ISN)** sends real-time notifications to your backend when purchase-related events occur. In this guide, I’ll show you how to build a Spring Boot server that handles these notifications.
+        // Create the JSON body
+        String jsonBody = "{"
+                + "\"sellerSeq\":\"000123456789\","
+                + "\"packageName\":\"com.samsung.android.sample\","
+                + "\"requestDate\":\"20230615\","
+                + "\"continuationToken\":\"e5ec039730164c50277f9a231b74c1b6e035d9184160d8b3d6b3de1f62691328fbe4c0c4863da52b3bcecef44a4c7acb974c674728c3cb173cb339bd41783f2c\""
+                + "}";
 
-### Step 1: Set Up Your Spring Boot Project
+        // Create the request body
+        RequestBody body = RequestBody.create(
+                jsonBody, MediaType.parse("application/json; charset=utf-8"));
 
-#### 1.1. Use Spring Initializer to Create a Spring Boot Project
+        // Build the request
+        Request request = new Request.Builder()
+                .url("https://devapi.samsungapps.com/iap/seller/orders")
+                .post(body)
+                .addHeader("Authorization", "Bearer <your-access-token>")
+                .addHeader("service-account-id", "<your-service-account-id>")
+                .addHeader("content-type", "application/json")
+                .build();
 
-Head over to **[Spring Initializer](https://start.spring.io/)** and create your project with the following dependencies:
-
-- **Spring Web** (for creating REST APIs)
-- **Spring Boot DevTools** (optional, for hot reloads)
-- **Lombok** (optional, to reduce boilerplate code)
-- **Spring Data JPA** (optional, if you plan to use a database)
-
-Once you’ve chosen your dependencies, **generate** and download the project.
-
-#### 1.2. Import the Project into Your IDE
-
-Open the project in your preferred IDE (e.g., IntelliJ, Eclipse) and ensure that it runs successfully by creating a basic controller to test.
-
-```java
-@RestController
-public class HelloController {
-
-    @GetMapping("/hello")
-    public String sayHello() {
-        return "Hello, Samsung IAP!";
-    }
-}
-```
-
-Run the application to verify everything works.
-
----
-
-### Step 2: Set Up Your ISN Endpoint
-
-#### 2.1. Create a Controller for ISN Notifications
-
-The server receives **POST** requests from Samsung IAP containing ISN notifications. Here’s how to create the endpoint:
-
-```java
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-@RestController
-@RequestMapping("/iap")
-public class IapController {
-
-    @PostMapping("/isn")
-    public ResponseEntity<String> handleISN(@RequestBody String requestBody,
-                                            @RequestHeader("X-Signature") String signature) {
-        // Log the received ISN notification
-        System.out.println("Received ISN notification: " + requestBody);
-
-        // Process the ISN notification (handle purchase status, etc.)
-        processISN(requestBody, signature);
-
-        // Return success response
-        return ResponseEntity.ok("ISN processed");
-    }
-
-    private void processISN(String requestBody, String signature) {
-        // Implement your business logic, like updating the database
-        System.out.println("Processing ISN: " + requestBody);
-    }
-}
-```
-
-- **Endpoint:** `/iap/isn` receives POST requests.
-- **RequestBody:** Contains the ISN payload (JSON format).
-- **X-Signature:** Used to verify the authenticity of the request (discussed in the next step).
-
----
-
-### Step 3: Set Up Verification for Samsung's X-Signature
-
-Samsung sends an **X-Signature** header with each notification, which you must verify using their public key to ensure the message's authenticity.
-
-#### 3.1. Get Your Public Key
-
-You can find the public key in the **Samsung Galaxy Store Console** under the IAP section for your app.
-
-#### 3.2. Verify the X-Signature
-
-```java
-import java.security.Signature;
-import java.security.KeyFactory;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
-
-public class IapController {
-
-    private static final String PUBLIC_KEY = "YOUR_SAMSUNG_PUBLIC_KEY";
-
-    private boolean verifySignature(String data, String signature) throws Exception {
-        byte[] publicKeyBytes = Base64.getDecoder().decode(PUBLIC_KEY);
-        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKeyBytes);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        Signature sig = Signature.getInstance("SHA256withRSA");
-        sig.initVerify(keyFactory.generatePublic(keySpec));
-        sig.update(data.getBytes());
-        return sig.verify(Base64.getDecoder().decode(signature));
-    }
-
-    @PostMapping("/isn")
-    public ResponseEntity<String> handleISN(@RequestBody String requestBody,
-                                            @RequestHeader("X-Signature") String signature) {
-        try {
-            if (verifySignature(requestBody, signature)) {
-                processISN(requestBody, signature);
-                return ResponseEntity.ok("ISN processed");
+        // Execute the request
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful()) {
+                // Get and print the response
+                System.out.println(response.body().string());
             } else {
-                return ResponseEntity.status(400).body("Invalid Signature");
+                System.out.println("Request failed: " + response.code());
             }
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
-```
 
----
+Explanation:
 
-### Step 4: Deploy Your Server
+1. OkHttpClient: Used to send requests and receive responses.
 
-#### 4.1. Use Ngrok for Local Testing
 
-- Download and install **Ngrok**.
-- Run your Spring Boot server locally (e.g., `localhost:8080`).
-- Use Ngrok to expose a public URL: `ngrok http 8080`.
-- Set the **Ngrok URL** in the **Samsung Galaxy Store Console** under ISN settings.
+2. RequestBody: The JSON body is created with the necessary data.
 
-#### 4.2. Deploy to Heroku or AWS
 
-For a more stable deployment, consider using a platform like **Heroku** or **AWS** to host your Spring Boot application and generate a permanent URL for your ISN endpoint.
+3. Request: The POST request is built, adding the necessary headers and the JSON body.
 
----
 
-### Step 5: Test Your Server with Postman
+4. Response: The response from the API is printed if the request is successful.
 
-Before using Samsung’s test tools, ensure your server is working properly using **Postman**.
 
-#### 5.1. Simulate a POST Request
 
-Create a POST request to your endpoint (`http://localhost:8080/iap/isn` or your deployed URL) and send a sample JSON body:
+You need to replace <your-access-token> and <your-service-account-id> with the actual values.
 
-```json
-{
-  "status": "SUBSCRIPTION_PURCHASED",
-  "itemId": "book_subscription_id",
-  "purchaseDate": "2024-09-30T12:34:56Z",
-  "transactionId": "unique_transaction_id"
-}
-```
-
-Verify that your server receives and processes the data.
-
----
-
-### Step 6: Handle Different ISN Event Types
-
-Samsung sends notifications for various events like purchase, renewal, or cancellation. Modify your logic to handle these:
-
-```java
-private void processISN(String requestBody, String signature) {
-    if (requestBody.contains("SUBSCRIPTION_PURCHASED")) {
-        System.out.println("Processing subscription purchase...");
-    } else if (requestBody.contains("SUBSCRIPTION_RENEWED")) {
-        System.out.println("Processing subscription renewal...");
-    } else if (requestBody.contains("SUBSCRIPTION_CANCELED")) {
-        System.out.println("Processing subscription cancellation...");
-    }
-}
-```
-
----
-
-### Step 7: Test ISN in Samsung’s Console
-
-Go to the **Samsung Galaxy Store Console** → Your App → **ISN Settings**. Use the **Test Notification Tool** to send a sample ISN event and confirm that your server processes it correctly.
-
----
-
-### Step 8: Persist Data (Optional)
-
-If you’re using a database, store the subscription data from the ISN notifications using **Spring Data JPA**:
-
-```java
-@Entity
-public class Subscription {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    private String itemId;
-    private String status;
-    private Date purchaseDate;
-}
-
-@Repository
-public interface SubscriptionRepository extends JpaRepository<Subscription, Long> {}
-```
-
----
-
-### Conclusion
-
-By following this guide, you now have a fully functional Spring Boot server capable of receiving and processing **Samsung IAP ISN** notifications. Thorough testing with both Postman and Samsung’s tools ensures a robust implementation.
-
-If you encounter any issues, don’t hesitate to reach out!
-
----
-
-This step-by-step blog post is tailored for easy understanding, including code snippets and clear explanations. Let me know if you'd like to add anything!
