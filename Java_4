@@ -1,82 +1,141 @@
-Understanding Samsung ISN Structure: Header, Payload, and Signature
+package com.example.bookspot;
 
-In the world of mobile development, when working with Samsung services like Samsung In-App Purchase (IAP), you’ll often come across ISN (In-App Subscription Notification). ISN helps you handle things like checking the status of a user’s subscription, cancellations, or refunds. To make sense of how it works, we need to break down its structure: the Header, Payload, and Signature. Let’s dive into this in simple terms.
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 
-1. What is Samsung ISN?
+import android.graphics.Color;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
 
-Samsung ISN is a way for Samsung’s system to notify your server about changes in a user’s subscription status. For example, if a user cancels a subscription, Samsung will send an ISN to let your server know. Think of it as a message or notification that updates you about subscription events.
+import com.samsung.android.sdk.iap.lib.constants.HelperDefine;
+import com.samsung.android.sdk.iap.lib.helper.IapHelper;
+import com.samsung.android.sdk.iap.lib.vo.OwnedProductVo;
 
-To make sure this message is secure and trustworthy, it’s broken down into three parts: the Header, Payload, and Signature. These parts help your app understand and verify what’s happening.
+import java.util.ArrayList;
 
+public class MainActivity extends AppCompatActivity {
 
----
+    Button buyBikeBtn, buyFuelBtn, buyBoosterBtn;
+    TextView fuelCountTextView, boosterCountTextView;
 
-2. The Three Main Parts of ISN
+    private IapHelper iapHelper;
+    private int fuelCount = 0, boosterCount = 0;
 
-a) Header
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-The Header is like the envelope of a letter. It tells you about the type of notification being sent, such as whether it’s about a new subscription, a renewal, or a cancellation. This section doesn’t contain any sensitive information but gives the necessary details about the type of event.
+        // Initialize IAP Helper and buttons
+        iapHelper = IapHelper.getInstance(getApplicationContext());
+        iapHelper.setOperationMode(HelperDefine.OperationMode.OPERATION_MODE_TEST);
 
-Some things you’ll find in the header:
+        buyBikeBtn = findViewById(R.id.buyBikeId);
+        buyFuelBtn = findViewById(R.id.buyFuelId);
+        buyBoosterBtn = findViewById(R.id.buyWheelId);
+        fuelCountTextView = findViewById(R.id.wheelCountTvId);
+        boosterCountTextView = findViewById(R.id.fuelCountTvId);
 
-Event Type (e.g., subscription renewal, cancellation)
+        // Set onClick listeners
+        buyBikeBtn.setOnClickListener(v -> handlePurchase("bike"));
+        buyFuelBtn.setOnClickListener(v -> handlePurchase("fuel"));
+        buyBoosterBtn.setOnClickListener(v -> handlePurchase("booster"));
 
-Algorithm Information (e.g., the method used to encrypt the data)
+        // Check if bike is purchased on app start
+        checkIfBikePurchased();
+    }
 
+    // Check if the bike is already purchased and update button
+    private void checkIfBikePurchased() {
+        getOwnedList("bike", isOwned -> {
+            if (isOwned) {
+                updateBikeButtonStatus();
+            }
+        });
+    }
 
-b) Payload
+    // Handle purchase and consumption logic
+    private void handlePurchase(String itemId) {
+        getOwnedList(itemId, isOwned -> {
+            if (isOwned) {
+                // Consume bike manually
+                if ("bike".equals(itemId)) {
+                    consumeItem(itemId);
+                }
+            } else {
+                // Start purchase flow
+                purchaseItem(itemId);
+            }
+        });
+    }
 
-The Payload is the actual content of the message. Think of it as the letter inside the envelope. This part contains the crucial information you need, like the user’s subscription details, the product they’ve subscribed to, and the current status of the subscription.
+    // Retrieve ownership status of a product
+    private void getOwnedList(String purchaseID, OnCheckOwnershipCallback callback) {
+        iapHelper.getOwnedList(IapHelper.PRODUCT_TYPE_ALL, (errorVo, ownedList) -> {
+            if (errorVo.getErrorCode() == HelperDefine.IAP_ERROR_NONE) {
+                for (OwnedProductVo ownedProduct : ownedList) {
+                    if (ownedProduct.getPurchaseId().equals(purchaseID)) {
+                        callback.onCheck(true); // Item is owned
+                        return;
+                    }
+                }
+                callback.onCheck(false); // Item is not owned
+            } else {
+                Toast.makeText(MainActivity.this, "Error: " + errorVo.getErrorString(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
-For example, it can contain:
+    // Purchase an item
+    private void purchaseItem(String itemId) {
+        iapHelper.startPayment(itemId, "1", (errorVo, purchaseVo) -> {
+            if (errorVo.getErrorCode() == HelperDefine.IAP_ERROR_NONE) {
+                Toast.makeText(MainActivity.this, "Purchase successful!", Toast.LENGTH_SHORT).show();
 
-Subscription ID: A unique identifier for the subscription.
+                if ("fuel".equals(itemId)) {
+                    fuelCount++;
+                    fuelCountTextView.setText("Fuel Count: " + fuelCount);
+                    consumeItem(itemId); // Auto consume fuel
+                } else if ("booster".equals(itemId)) {
+                    boosterCount += 2;
+                    boosterCountTextView.setText("Booster Count: " + boosterCount);
+                    consumeItem(itemId); // Auto consume booster
+                } else if ("bike".equals(itemId)) {
+                    consumeItem(itemId); // Manual consume for bike
+                }
+            } else {
+                Toast.makeText(MainActivity.this, "Purchase failed: " + errorVo.getErrorString(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
-Product ID: The ID of the specific product or service the user is subscribed to.
+    // Consume the item
+    private void consumeItem(String sku) {
+        iapHelper.consumePurchasedItems(sku, (errorVo, consumeList) -> {
+            if (errorVo.getErrorCode() == HelperDefine.IAP_ERROR_NONE) {
+                Toast.makeText(MainActivity.this, sku + " consumed!", Toast.LENGTH_SHORT).show();
+                if ("bike".equals(sku)) {
+                    updateBikeButtonStatus();
+                }
+            } else {
+                Toast.makeText(MainActivity.this, "Consume failed: " + errorVo.getErrorString(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
-Status: Whether the subscription is active, canceled, or expired.
+    // Update the bike button to show "Consumed"
+    private void updateBikeButtonStatus() {
+        buyBikeBtn.setText("Consumed");
+        buyBikeBtn.setBackgroundColor(Color.GRAY);
+        buyBikeBtn.setEnabled(false);
+    }
 
-Time of the Event: When the event occurred.
-
-
-The payload is where all the important information is stored that your server will process.
-
-c) Signature
-
-The Signature is the security feature. It’s like a digital stamp that proves the message is genuine and hasn’t been tampered with. Samsung uses the Signature to ensure the data in the Payload is authentic. Before your app trusts the notification, it verifies the Signature to make sure everything is legit.
-
-The signature works by using cryptographic algorithms to create a unique code based on the content of the Payload. Your server checks this signature to confirm that no one has altered the message while it was being transmitted.
-
-
----
-
-3. How to Use ISN in Your App
-
-When your app receives an ISN from Samsung, it goes through these steps:
-
-1. Read the Header: Understand the type of event that triggered the notification.
-
-
-2. Verify the Signature: Make sure the message is secure and hasn’t been tampered with.
-
-
-3. Process the Payload: Use the information in the Payload to update the user’s subscription status, process refunds, or handle other subscription-related tasks.
-
-
-
-
----
-
-4. Why is ISN Important?
-
-ISN is vital because it ensures your app stays up to date with any changes in a user's subscription. This helps you provide the right access to services, manage subscriptions properly, and offer a smooth user experience.
-
-
----
-
-5. Final Thoughts
-
-Working with Samsung ISN may seem technical at first, but breaking it down into the Header, Payload, and Signature makes it easier to understand. Remember, the Header tells you what’s happening, the Payload gives the details, and the Signature makes sure it’s all secure. By handling ISNs correctly, you can manage your users’ subscriptions efficiently and securely.
-
-Hope this guide helps you get started with Samsung ISN!
-
+    // Interface for ownership callback
+    interface OnCheckOwnershipCallback {
+        void onCheck(boolean isOwned);
+    }
+}
