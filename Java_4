@@ -1,216 +1,83 @@
-Perfect. Here’s the full Android Java code for a basic app that:
+The error code
 
-1. Records the user’s recitation.
+IS9810 / 6050 / ywsSTVahnjl
 
-
-2. Sends the audio to a Python server.
-
-
-3. Receives the transcription and mistake comparison.
+in Samsung In-App Purchase (IAP) usually means “Service unavailable” because the device or account cannot connect to Samsung’s payment service at that moment.
+For IS9810, Samsung’s docs say it’s a temporary service unavailability error—often caused by environment, configuration, or connectivity issues.
 
 
-4. Displays the result.
+---
+
+Common Causes & Fixes
+
+1️⃣ Test Environment Not Set Correctly
+
+If you’re testing in developer mode or with a sandbox account, make sure:
+
+Galaxy Store is installed and updated on the device.
+
+You’re logged in to a Samsung Account that is added as a tester in the Samsung Seller Portal.
+
+You’re using the correct IAP Mode (IapHelper.IAP_MODE_TEST for testing).
+
+
+If you try to purchase a real item in test mode (or a test item in live mode), you’ll get this error.
+
+
+2️⃣ Samsung IAP SDK Not Updated
+
+Make sure you’re using the latest Samsung IAP SDK (current version is 6.x).
+
+Older SDK versions sometimes cause IS9810 due to SSL or API changes.
+
+
+3️⃣ Item Not Published or Wrong Item ID
+
+If the item’s Product ID in your code doesn’t exactly match the ID in the Seller Portal, Samsung IAP will fail.
+
+Ensure the item status in the Seller Portal is Published and the app is updated with that ID.
+
+
+4️⃣ Device / Region Restrictions
+
+Samsung IAP only works in supported countries.
+
+If your Samsung account’s country doesn’t match the app’s distribution country, it can return IS9810.
+
+
+5️⃣ Temporary Server Issue
+
+Sometimes it’s just downtime on Samsung’s end. Try again after 10–15 minutes or on another network (Wi-Fi vs. mobile data).
+
+
+
+---
+
+Quick Checklist to Solve IS9810 / 6050
+
+1. ✅ Update Galaxy Store and Samsung IAP app on device.
+
+
+2. ✅ Use a Samsung account added to your app’s tester list.
+
+
+3. ✅ Match Item ID exactly between code and Seller Portal.
+
+
+4. ✅ Make sure the item is Published (not draft or pending approval).
+
+
+5. ✅ Ensure SDK version is latest.
+
+
+6. ✅ Test with both Wi-Fi and mobile data to rule out network issues.
 
 
 
 
 ---
 
-1. Permissions (in AndroidManifest.xml)
+If you want, I can prepare a step-by-step Samsung IAP testing checklist so you can quickly identify whether it’s a configuration error or server downtime. That way you’ll know if it’s your setup or Samsung’s side.
 
-<uses-permission android.permission.RECORD_AUDIO />
-<uses-permission android.permission.WRITE_EXTERNAL_STORAGE />
-<uses-permission android.permission.READ_EXTERNAL_STORAGE />
-<uses-permission android.permission.INTERNET />
-
-
----
-
-2. Layout (in res/layout/activity_main.xml)
-
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp">
-
-    <Button
-        android:id="@+id/recordBtn"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Start Recording" />
-
-    <Button
-        android:id="@+id/sendBtn"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Send to Server"
-        android:layout_marginTop="16dp"/>
-
-    <TextView
-        android:id="@+id/resultText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Result will appear here..."
-        android:layout_marginTop="24dp"
-        android:textSize="16sp"/>
-</LinearLayout>
-
-
----
-
-3. Java Code (MainActivity.java)
-
-package com.example.quranrecitation;
-
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.media.MediaRecorder;
-import android.os.Bundle;
-import android.os.Environment;
-import android.util.Log;
-import android.view.View;
-import android.widget.Button;
-import android.widget.TextView;
-
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.io.File;
-import java.io.IOException;
-
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
-
-public class MainActivity extends AppCompatActivity {
-
-    Button recordBtn, sendBtn;
-    TextView resultText;
-
-    MediaRecorder recorder;
-    String audioPath;
-    boolean isRecording = false;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        recordBtn = findViewById(R.id.recordBtn);
-        sendBtn = findViewById(R.id.sendBtn);
-        resultText = findViewById(R.id.resultText);
-
-        ActivityCompat.requestPermissions(this,
-                new String[]{Manifest.permission.RECORD_AUDIO,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE}, 200);
-
-        audioPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/recite.wav";
-
-        recordBtn.setOnClickListener(v -> {
-            if (!isRecording) {
-                startRecording();
-                recordBtn.setText("Stop Recording");
-            } else {
-                stopRecording();
-                recordBtn.setText("Start Recording");
-            }
-        });
-
-        sendBtn.setOnClickListener(v -> sendAudioToServer());
-    }
-
-    private void startRecording() {
-        recorder = new MediaRecorder();
-        recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-        recorder.setOutputFile(audioPath);
-        recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-        try {
-            recorder.prepare();
-            recorder.start();
-            isRecording = true;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void stopRecording() {
-        if (recorder != null) {
-            recorder.stop();
-            recorder.release();
-            recorder = null;
-            isRecording = false;
-        }
-    }
-
-    private void sendAudioToServer() {
-        File audioFile = new File(audioPath);
-        if (!audioFile.exists()) {
-            resultText.setText("Recording not found!");
-            return;
-        }
-
-        OkHttpClient client = new OkHttpClient();
-        RequestBody requestBody = new MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("audio", "recite.wav",
-                        RequestBody.create(MediaType.parse("audio/wav"), audioFile))
-                .build();
-
-        Request request = new Request.Builder()
-                .url("http://YOUR_SERVER_IP:5000/check") // Replace with your server IP
-                .post(requestBody)
-                .build();
-
-        client.newCall(request).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                runOnUiThread(() -> resultText.setText("Failed to connect to server"));
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                String resBody = response.body().string();
-                runOnUiThread(() -> {
-                    try {
-                        JSONObject obj = new JSONObject(resBody);
-                        String transcript = obj.getString("transcript");
-                        JSONArray diff = obj.getJSONArray("diff");
-
-                        StringBuilder mistakes = new StringBuilder("Transcript:\n" + transcript + "\n\nMistakes:\n");
-                        for (int i = 0; i < diff.length(); i++) {
-                            String item = diff.getString(i);
-                            if (item.startsWith("- ") || item.startsWith("+ ")) {
-                                mistakes.append(item).append("\n");
-                            }
-                        }
-
-                        resultText.setText(mistakes.toString());
-                    } catch (Exception e) {
-                        resultText.setText("Parsing error: " + e.getMessage());
-                    }
-                });
-            }
-        });
-    }
-}
-
-
----
-
-4. What’s Next
-
-You now need the Python server to receive the audio and respond with transcription & mistakes.
-
-I’ve already shared the Flask server earlier. Want me to give you the complete working server.py and requirements.txt?
-
-
-Let me know and I’ll send it right away.
+Do you want me to make that checklist for you?
 
